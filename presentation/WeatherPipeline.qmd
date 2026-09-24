@@ -8,6 +8,7 @@ format:
     theme: simple
     width: 1600
     height: 900
+    embed-resources: true
 bibliography: ../../Presentation/bibliography.bib
 ---
 
@@ -83,7 +84,9 @@ package, and `terra` already has everything needed to draw a `SpatRaster`.
 | ~1° grid (regridded) | Native ERA5 resolution (0.25°) or finer (ERA5-Land, 9km) |
 | Collapsed to **monthly** cell values | Kept at **daily** resolution |
 
-**Using daily-data matters in a real research data!!!** See [@ortiz-bobeaa].
+<div style="height: 1em;"></div>
+
+We use monthly weather data here for convenience. But in a real project, **Consider using daily-data: daily measures matter to capture weather events!!!** See [@ortiz-bobeaa].
 
 ::: {.notes}
 Why daily matters: economic damage functions are usually **non-linear** in temperature (a day at
@@ -96,6 +99,12 @@ interpolation/aggregation choices involved.
 ---
 
 ## Folder organization
+
+Important to keep this folder structure for reproducibility:
+* Have separate folders for **raw** data (the one you download and don't touch), and **intermediary/final** data (the one you transform)
+* Your scripts must have precised tasks
+
+<div style="height: 1em;"></div>
 
 ```
 WeatherData_111/
@@ -114,8 +123,15 @@ WeatherData_111/
 
 ## `running_all.R`
 
-Sources every script below, in order. Run it from the project root
-(open `era5-weather-data-economics.Rproj` first).
+The one script which runs everything in the pipeline.
+
+<div style="height: 1em;"></div>
+
+Sources every script below, in order. If you want to have everything at once, run it from the project root 
+
+  * open `era5-weather-data-economics.Rproj` first
+
+<div style="height: 1em;"></div>
 
 ```r
 source("scripts/00_preamble.R")
@@ -126,6 +142,10 @@ source("scripts/04_spatial_aggreg.R")
 source("scripts/05_prepare_panel.R")
 source("scripts/06_main_regression.R")
 ```
+
+<div style="height: 1em;"></div>
+
+Now, in the rest of the presentation, we check these scripts one by one.
 
 ---
 
@@ -151,36 +171,16 @@ cfg <- list(
 
 - **Temperature** (min/max only): CDS's `derived-era5-single-levels-daily-statistics` dataset.
   It computes the daily statistic for us; each request returns one value per day.
-- **Precipitation**: the plain **hourly** `reanalysis-era5-single-levels` dataset instead
-  (next slide explains why).
+- **Precipitation**: the plain **hourly** `reanalysis-era5-single-levels` dataset instead, and we sum hourly observations to have daily totals.
 
 ::: {.callout-note}
 CDS rate-limits repeated requests from one account (`403 ... check your retry rate`) and gates
-some datasets behind a per-account licence click-through. Two temperature requests (not three)
-keeps this comfortably inside that budget; add `daily_mean` back if your account has more quota.
+some datasets behind a per-account licence click-through. Two temperature requests 
+keeps this comfortably inside that budget.
+
+If you want to download more data, consider building a function which takes into account this quota. Alternatively, consider download from the [Analysis-ready cloud data access](https://cds.climate.copernicus.eu/datasets/reanalysis-era5-land?tab=analysis_ready_data) which is currently under development, but will greatly help in the future the downloading of ERA5 weather data.
 :::
 
----
-
-## Why not `daily_sum` for precipitation? {.smaller}
-
-CDS's derived daily-statistics dataset looks like the natural choice for precipitation too:
-request `total_precipitation` with `daily_statistic: "daily_sum"` and get one number per day,
-just like temperature. This repo's own `img/` folder has a screenshot of exactly that request,
-built while exploring the API for this course:
-
-![A real CDS request attempting `daily_sum` on `total_precipitation`](img/era5_daily_sum_mistake.png){fig-align="center" width="60%"}
-
-`total_precipitation` is an **accumulated** variable: each hourly value is precipitation *since
-the previous hour*, not an instantaneous reading. Users on the ECMWF forum report that
-`daily_sum` on this endpoint returns nonsense for accumulated variables like this one:
-
-> "[daily_sum] gave me precipitation values for every second, which doesn't make sense."
-
-Source: [ECMWF Forum, "New dataset published in CDS: ERA5 and ERA5-Land post-processed daily statistics"](https://forum.ecmwf.int/t/new-dataset-published-in-cds-era5-and-era5-land-post-processed-daily-statistics/6881)
-
-So instead: download the plain **hourly** product, and sum the 24 hourly values ourselves for
-each day, in `03_time_aggreg.R`.
 
 ---
 
@@ -239,8 +239,7 @@ precip_daily <- tapp(precip_hourly, index = rep(seq_len(n_days), each = 24), fun
 
 ## `03_time_aggreg.R`: collapsing the month to one value per cell {.smaller}
 
-Only min/max daily temperature get downloaded (not mean, see the CDS rate limits on the previous
-slides), so 6 temperature summaries get computed instead of 3, from those two series:
+6 monthly temperature summaries get computed, from those two series of daily data:
 
 ```r
 temp_native <- c(app(temp_min_daily, fun = "mean"), app(temp_min_daily, fun = "min"),
@@ -249,6 +248,8 @@ temp_native <- c(app(temp_min_daily, fun = "mean"), app(temp_min_daily, fun = "m
 names(temp_native) <- c("temp_mean_daily_min", ..., "temp_max_daily_max")
 precip_total <- app(precip_daily, fun = "sum")
 ```
+
+For each daily data we compute: the mean, the max and the min of the month, using ``terra::app()`` function.
 
 ::: {.callout-warning}
 `c()` **must be called without names**: `c(name = app(...), ...)` silently returns a plain R
@@ -297,10 +298,8 @@ weather_nuts3 <- lapply(names(monthly), function(v) {
 })
 ```
 
-`script_to_include/`'s reference pipeline builds a comparable matrix by hand and saves it
-(`data/intermediary/P_weight_matrix.rds`), using each cell's **population** as the weight instead
-of area, so that densely populated cells count for more. Swapping the weighting scheme is the
-natural refinement once this area-weighted version works.
+Note that if you want to build your own weight matrix (for instance including agricultural land weights, or population weights), better use the approach presented by A. Ortiz-Bobea, which build by hand this matrix. Then, instead of using ``exact_extract()``, it computes the weighted mean directly from the matrix product.
+
 
 ![](../figures/nuts3_map_temp_mean_daily_max.png){width="50%"}
 
@@ -321,14 +320,14 @@ stack the results (adding a `year` column), then join against every matching yea
 
 ## `06_main_regression.R`: income and temperature
 
+Just for the example, we run a simple regression of 2022 NUTS-3 GDP as a function of the weather observed on the month of ``cfg$month`` - ``cfg$year``.
+
 ```r
-lm(log(gdp_pc) ~ temp_mean_daily_max + I(temp_mean_daily_max^2) + precip_total,
-   data = panel_nuts3)
+lm(log(gdp_pc) ~ temp_mean_daily_max + temp_mean_daily_max_sq + precip_total + precip_total_sq,
+          data = panel_nuts3)
 ```
 
-In the spirit of Deschênes & Greenstone (2007) and Burke & Emerick (2016). With only a
-**single year**, there is no within-region variation left, so this checks the merge and the
-functional form, not a causal effect.
+This regression does not make any economic sense. Your task would be to adjust this pipeline, to get the ERA5 data and economic data to suit your own research question.
 
 ---
 
@@ -340,3 +339,7 @@ functional form, not a causal effect.
    non-linear transformations (see [@ortiz-bobeaa])
 4. Swap the area-weighted spatial aggregation for the population-weighted one
    already implemented in `script_to_include/04_Spat_Aggreg.R`
+   
+---
+
+## Bibliography
