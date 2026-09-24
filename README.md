@@ -9,6 +9,12 @@ Kept deliberately simple: one month of data at coarse resolution, so the whole p
 minutes and is easy to read end to end. See `presentation/WeatherPipeline.qmd` for what that
 means in practice and how to extend it into a real research design.
 
+This pipeline and presentation is greatly inspired from Ariel Ortiz-Bobea 
+**R code for common empirical tasks in climate change impact assessment**, and its
+associated chapter **The Empirical Analysis of Climate Change Impacts and Adaptation in Agriculture**, 
+*Handbook of Agricultural Economics* 5 (2021).
+
+
 ## What's in this repository
 
 | Path | What it is |
@@ -39,6 +45,13 @@ them out of git keeps clones small.
    everything to `data/`, `figures/`, and `tables/`.
 5. Open `Presentation/WeatherPipeline.qmd` (or render it with `quarto render`) to follow along
    with what each step just did.
+
+## References
+
+* A. Ortiz-Bobea, ``The Empirical Analysis of Climate Change Impacts and Adaptation in Agriculture'',
+chapter from *Handbook of Agricultural Economics 5 (2021) 3981–4073*
+   * [Link to chapter](https://www.sciencedirect.com/science/chapter/handbook/pii/S1574007221000025)
+   * [Link to repository](https://data.socialsciences.cornell.edu/dataset.xhtml?persistentId=doi:10.6077/FB1A-C376)
 
 ## License
 

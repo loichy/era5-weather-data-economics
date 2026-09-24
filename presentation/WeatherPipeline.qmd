@@ -6,13 +6,15 @@ format:
   revealjs:
     slide-number: true
     theme: simple
+    width: 1600
+    height: 900
 bibliography: ../../Presentation/bibliography.bib
 ---
 
 ## Objectives
 
 - Where weather data comes from, and what format it comes in
-- A short, readable R pipeline: download, check, aggregate in time, aggregate in space, merge, regress
+- A short, readable R pipeline: download, check, aggregate in time, aggregate in space, merge with economics data, and regress
 - Kept **deliberately simple** for now: one month of data, coarse resolution, one cross-section
 - What would need to change to turn this into a real research design
 
@@ -23,7 +25,7 @@ bibliography: ../../Presentation/bibliography.bib
 ::: {.incremental}
 - **Station data**: accurate at a point, but stations appear/disappear over time (missing data, needs interpolation)
 - **Gridded / reanalysis data**: a uniform record over space and time, built from station data plus a physical model
-  - [ERA5](https://cds.climate.copernicus.eu/datasets/reanalysis-era5-single-levels) (global, hourly, ~31km): what we use here
+  - [ERA5](https://cds.climate.copernicus.eu/datasets/reanalysis-era5-single-levels) (global, hourly, ~31km): what we use here (but should use ERA5-Land, ~9km, the standard but makes the pipeline slower)
   - PRISM (US only, ~4km), CRU (global, monthly, ~56km)
 :::
 
@@ -31,10 +33,7 @@ bibliography: ../../Presentation/bibliography.bib
 
 ## What "gridded" actually looks like
 
-![A gridded (NetCDF) dataset: one value per longitude x latitude x time cell](img/raster.png){fig-align="center" width="70%"}
-
-The next two slides show exactly what this cube looks like once R reads it in, and which
-packages do the reading.
+![A gridded (NetCDF) dataset: one value per longitude x latitude x time cell](img/raster.png){fig-align="center" width="95%"}
 
 ---
 
@@ -60,13 +59,12 @@ without ever leaving the cube (used in `03` to go from daily to monthly).
 
 ---
 
-## Key formats and packages
+## Key formats and packages {.smaller}
 
 | Name | What it is | Why we need it |
 |---|---|---|
 | **NetCDF** (`.nc`) | The file format ERA5 comes in: a self-describing array format for gridded, multi-dimensional data | What CDS actually sends us |
 | **terra** | Reads/writes rasters and does the cube-level operations (`rast()`, `app()`, `tapp()`, `extract()`) | The engine behind every step in `scripts/` |
-| **raster** | terra's older predecessor; `script_to_include/` still uses it | Not used here, but you will see it in the reference scripts |
 | **sf** | Reads and handles vector data: points, lines, polygons | Represents the NUTS3 regions as geometry R can join and plot |
 | **exactextractr** | Computes exact area overlaps between a raster and a set of polygons | Step 04: cells to regions |
 | **ggplot2** | Grammar-of-graphics plotting | Every time series, and the NUTS3 choropleth maps (paired with `sf`'s `geom_sf()`) |
@@ -81,15 +79,19 @@ package, and `terra` already has everything needed to draw a `SpatRaster`.
 
 | Choice made here | What a real analysis would do instead |
 |---|---|
-| One month of data | Many years, to get panel/long-difference variation (see `05_prepare_panel.R`) |
+| One month of data | Many years, to get panel/longitudinal variations  |
 | ~1° grid (regridded) | Native ERA5 resolution (0.25°) or finer (ERA5-Land, 9km) |
 | Collapsed to **monthly** cell values | Kept at **daily** resolution |
 
+**Using daily-data matters in a real research data!!!** See [@ortiz-bobeaa].
+
+::: {.notes}
 Why daily matters: economic damage functions are usually **non-linear** in temperature (a day at
 35°C is not "half of" two days at 17.5°C), so time-aggregating before computing the non-linear
-response biases the estimated effect. See [@ortiz-bobeaa], the same Ortiz-Bobea handbook chapter
+response biases the estimated effect. , the same Ortiz-Bobea handbook chapter
 cited in the main lecture deck, for how to work with daily gridded data and the
 interpolation/aggregation choices involved.
+:::
 
 ---
 
@@ -98,7 +100,7 @@ interpolation/aggregation choices involved.
 ```
 WeatherData_111/
 ├── scripts/            # this pipeline (running_all.R sources 00 -> 06)
-├── Presentation/        # this slide deck
+├── presentation/        # this slide deck
 ├── code/ERA5_APIKey.R   # your CDS personal access token (gitignored)
 ├── data/
 │   ├── source/          # raw downloads (NetCDF)
@@ -113,7 +115,7 @@ WeatherData_111/
 ## `running_all.R`
 
 Sources every script below, in order. Run it from the project root
-(open `WeatherData_111.Rproj` first).
+(open `era5-weather-data-economics.Rproj` first).
 
 ```r
 source("scripts/00_preamble.R")
@@ -130,7 +132,7 @@ source("scripts/06_main_regression.R")
 ## `00_preamble.R`: packages, folders, and `cfg`
 
 - Loads packages, creates `data/`, `figures/`, `tables/` if missing
-- One `cfg` list controls the whole run:
+- One `cfg` list controls the set of data you are downloading:
 
 ```r
 cfg <- list(
@@ -141,7 +143,7 @@ cfg <- list(
 )
 ```
 
-- Registers your CDS key (`code/ERA5_APIKey.R`, gitignored, never printed)
+- Registers your CDS key (`code/ERA5_APIKey.R`, gitignored, to keep this private)
 
 ---
 
