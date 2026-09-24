@@ -48,12 +48,17 @@ po/*~
 # RStudio Connect folder
 rsconnect/
 
-# R script with ERA 5 API key
-code/ERA5_APIKey.R
+# Old archices
+_old/*
 
-# NUTS3 shapefile
-data/source/NUTS*
+# R scripts with ERA5 API keys (glob covers ERA5_APIKey.R, ERA5_APIKey_2.R, ...)
+code/ERA5_APIKey*.R
 
-# TMPFILE
-data/source/TMPFILE
-data/source/TMPFILE.nc
+# Weather data pipeline: never commit downloads or derived data, only source code.
+data/source/*
+data/intermediary/*
+data/final/*
+
+# Except: shapefiles (needed in the repo so students can download/use them directly).
+!data/source/*.shp/
+!data/source/*.shp/**
